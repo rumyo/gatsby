@@ -43,11 +43,11 @@ const errorMap = {
   },
   "85908": {
     text: context => {
-      const closetFragment = context.closestFragment
+      const closestFragment = context.closestFragment
         ? `\n\nDid you mean to use ` + `"${context.closestFragment}"?`
         : ``
 
-      return `There was an error in your GraphQL query:\n\nThe fragment "${context.fragmentName}" does not exist.${closetFragment}`
+      return `There was an error in your GraphQL query:\n\nThe fragment "${context.fragmentName}" does not exist.\n\n${context.codeFrame}${closestFragment}`
     },
     type: `GRAPHQL`,
     level: `ERROR`,
@@ -253,7 +253,7 @@ const errorMap = {
       [
         stripIndent(`
           Your plugins must export known APIs from their gatsby-${context.exportType}.js.
-      
+
           See https://www.gatsbyjs.org/docs/${context.exportType}-apis/ for the list of Gatsby ${context.exportType} APIs.
         `),
       ]

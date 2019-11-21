@@ -1,6 +1,7 @@
 // @flow
 const _ = require(`lodash`)
 
+import { codeFrameColumns } from "@babel/code-frame"
 const path = require(`path`)
 const normalize = require(`normalize-path`)
 const glob = require(`glob`)
@@ -10,36 +11,17 @@ const {
   validate,
   print,
   visit,
+  getLocation,
   Kind,
-  FieldsOnCorrectTypeRule,
   FragmentsOnCompositeTypesRule,
-  KnownArgumentNamesRule,
-  KnownDirectivesRule,
   KnownTypeNamesRule,
   LoneAnonymousOperationRule,
-  NoFragmentCyclesRule,
-  NoUndefinedVariablesRule,
-  NoUnusedVariablesRule,
-  OverlappingFieldsCanBeMergedRule,
   PossibleFragmentSpreadsRule,
-  ProvidedRequiredArgumentsRule,
   ScalarLeafsRule,
-  SingleFieldSubscriptionsRule,
-  UniqueArgumentNamesRule,
-  UniqueDirectivesPerLocationRule,
-  UniqueFragmentNamesRule,
-  UniqueInputFieldNamesRule,
-  UniqueOperationNamesRule,
-  UniqueVariableNamesRule,
   ValuesOfCorrectTypeRule,
   VariablesAreInputTypesRule,
   VariablesInAllowedPositionRule,
 } = require(`graphql`)
-
-// TODO: Make it a default export in graphql
-const {
-  ExecutableDefinitions: ExecutableDefinitionsRule,
-} = require(`graphql/validation/rules/ExecutableDefinitions`)
 
 const getGatsbyDependents = require(`../utils/gatsby-dependents`)
 const { store } = require(`../redux`)
@@ -62,25 +44,6 @@ const preValidationRules = [
   PossibleFragmentSpreadsRule,
   ValuesOfCorrectTypeRule,
   VariablesInAllowedPositionRule,
-]
-
-const mainValidationRules = [
-  ExecutableDefinitionsRule,
-  UniqueOperationNamesRule,
-  SingleFieldSubscriptionsRule,
-  FieldsOnCorrectTypeRule,
-  UniqueFragmentNamesRule,
-  NoFragmentCyclesRule,
-  UniqueVariableNamesRule,
-  NoUndefinedVariablesRule,
-  NoUnusedVariablesRule,
-  KnownDirectivesRule,
-  UniqueDirectivesPerLocationRule,
-  KnownArgumentNamesRule,
-  UniqueArgumentNamesRule,
-  ProvidedRequiredArgumentsRule,
-  OverlappingFieldsCanBeMergedRule,
-  UniqueInputFieldNamesRule,
 ]
 
 const overlayErrorID = `graphql-compiler`
@@ -171,7 +134,6 @@ class Runner {
     const compiledNodes: Queries = new Map()
     const namePathMap = new Map()
     const nameDefMap = new Map()
-    const nameErrorMap = new Map()
     const operationDefinitions = []
     const fragmentMap = new Map()
 
@@ -229,32 +191,6 @@ class Runner {
       })
     }
 
-    const globalDoc = {
-      kind: Kind.DOCUMENT,
-      definitions: [
-        ...operationDefinitions,
-        ...Array.from(fragmentMap.values()).map(({ def }) => def),
-      ],
-    }
-    const errors = validate(this.schema, globalDoc, mainValidationRules)
-    if (errors && errors.length) {
-      for (const error of errors) {
-        const { formattedMessage, docName, message, codeBlock } = graphqlError(
-          namePathMap,
-          nameDefMap,
-          error
-        )
-        nameErrorMap.set(docName, { formattedMessage, message, codeBlock })
-        actions.queryExtractionGraphQLError({
-          componentPath: namePathMap.get(docName),
-          error: formattedMessage,
-        })
-
-        const filePath = namePathMap.get(docName)
-        addError(errorParser({ message, filePath }))
-      }
-    }
-
     const usedFragmentsForFragment = new Map()
     const fragmentNames = Array.from(fragmentMap.keys())
 
@@ -280,7 +216,7 @@ class Runner {
 
       const usedFragments = new Set()
       const stack = [operation]
-      const missingFragment = false
+      let missingFragment = false
 
       while (stack.length > 0) {
         const def = stack.pop(operation)
@@ -298,6 +234,7 @@ class Runner {
               stack.push(fragmentMap.get(name).def)
               usedFragments.add(name)
             } else {
+              missingFragment = true
               const closestFragment = fragmentNames
                 .map(f => {
                   return { fragment: f, score: levenshtein.get(name, f) }
@@ -308,15 +245,31 @@ class Runner {
               actions.queryExtractionGraphQLError({
                 componentPath: filePath,
               })
+
               addError({
                 id: `85908`,
                 filePath,
-                context: { fragmentName: name, closestFragment },
+                context: {
+                  fragmentName: name,
+                  closestFragment,
+                  codeFrame: codeFrameColumns(
+                    def.text,
+                    {
+                      start: getLocation({ body: def.text }, node.loc.start),
+                      end: getLocation({ body: def.text }, node.loc.end),
+                    },
+                    {
+                      linesAbove: 10,
+                      linesBelow: 10,
+                    }
+                  ),
+                },
               })
             }
           },
         })
       }
+
       if (missingFragment) {
         continue
       }
@@ -326,6 +279,34 @@ class Runner {
         definitions: Array.from(usedFragments.values())
           .map(name => fragmentMap.get(name).def)
           .concat([operation]),
+      }
+
+      const errors = validate(this.schema, document)
+      if (errors && errors.length) {
+        for (const error of errors) {
+          const { formattedMessage, message } = graphqlError(
+            namePathMap,
+            nameDefMap,
+            error
+          )
+
+          const filePath = namePathMap.get(name)
+          actions.queryExtractionGraphQLError({
+            componentPath: filePath,
+            error: formattedMessage,
+          })
+          addError(
+            errorParser({
+              location: locInGraphQlToLocInFile(
+                operation.templateLoc,
+                error.locations[0]
+              ),
+              message,
+              filePath,
+            })
+          )
+        }
+        continue
       }
 
       const query = {

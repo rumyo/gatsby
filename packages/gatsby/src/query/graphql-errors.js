@@ -80,8 +80,8 @@ function findLocation(extractedMessage, def) {
   visit(def, {
     enter(node) {
       if (location) return
-      for (let [regex, handler] of handlers) {
-        let match = extractedMessage.match(regex)
+      for (const [regex, handler] of handlers) {
+        const match = extractedMessage.match(regex)
         if (!match) continue
         if ((location = handler(match.slice(1), node))) break
       }
@@ -111,23 +111,25 @@ function getCodeFrameFromRelayError(
   extractedMessage: string,
   error: Error
 ) {
-  let { start, source } = findLocation(extractedMessage, def) || {}
-  let query = source ? source.body : print(def)
+  const { start, source } = findLocation(extractedMessage, def) || {}
+  const query = source ? source.body : print(def)
 
   // we can't reliably get a location without the location source, since
   // the printed query may differ from the original.
-  let { line, column } = (source && getLocation(source, start)) || {}
+  const { line, column } = (source && getLocation(source, start)) || {}
   return getCodeFrame(query, line, column)
 }
+
+export function unknownFragmentError(filePath: string, location) {}
 
 export function multipleRootQueriesError(
   filePath: string,
   def: any,
   otherDef: any
 ) {
-  let name = def.name.value
-  let otherName = otherDef.name.value
-  let unifiedName = `${_.camelCase(name)}And${_.upperFirst(
+  const name = def.name.value
+  const otherName = otherDef.name.value
+  const unifiedName = `${_.camelCase(name)}And${_.upperFirst(
     _.camelCase(otherName)
   )}`
 
@@ -192,8 +194,8 @@ export function graphqlError(
   error: Error | RelayGraphQLError
 ) {
   let codeBlock
-  let { message, docName } = extractError(error)
-  let filePath = namePathMap.get(docName)
+  const { message, docName } = extractError(error)
+  const filePath = namePathMap.get(docName)
 
   if (filePath && docName) {
     codeBlock = getCodeFrameFromRelayError(
