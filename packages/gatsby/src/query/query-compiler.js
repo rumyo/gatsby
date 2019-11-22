@@ -1,4 +1,10 @@
 // @flow
+
+/** Query compiler extracts queries and fragments from all files, validates them
+ * and then collocates them with fragments they require. This way fragments
+ * have global scope and can be used in any other query or fragment.
+ */
+
 const _ = require(`lodash`)
 
 import { codeFrameColumns } from "@babel/code-frame"
