@@ -90,7 +90,7 @@ Object {
 exports[`actual compiling compiles static query 1`] = `
 Object {
   "hash": "hash",
-  "id": "sq--home-freiksenet-work-gatsby-gatsby-mock-file",
+  "id": Any<String>,
   "isHook": undefined,
   "isStaticQuery": true,
   "name": "mockFileQuery",

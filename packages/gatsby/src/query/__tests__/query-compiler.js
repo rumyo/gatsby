@@ -670,7 +670,9 @@ describe(`actual compiling`, () => {
       errors.push(e)
     })
     expect(errors).toEqual([])
-    expect(result.get(`mockFile`)).toMatchSnapshot()
+    expect(result.get(`mockFile`)).toMatchSnapshot({
+      id: expect.any(String),
+    })
   })
 
   it(`adds fragments from same documents`, async () => {
