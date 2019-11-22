@@ -2,6 +2,7 @@
 
 import { print, visit, getLocation } from "graphql"
 import { codeFrameColumns } from "@babel/code-frame"
+const levenshtein = require(`fast-levenshtein`)
 import _ from "lodash"
 import report from "gatsby-cli/lib/reporter"
 
@@ -120,8 +121,6 @@ function getCodeFrameFromRelayError(
   return getCodeFrame(query, line, column)
 }
 
-export function unknownFragmentError(filePath: string, location) {}
-
 export function multipleRootQueriesError(
   filePath: string,
   def: any,
@@ -189,20 +188,15 @@ export function multipleRootQueriesError(
 }
 
 export function graphqlError(
-  namePathMap: Map<string, string>,
-  nameDefMap: Map<string, any>,
+  definitionsByName: Map<string, any>,
   error: Error | RelayGraphQLError
 ) {
   let codeBlock
   const { message, docName } = extractError(error)
-  const filePath = namePathMap.get(docName)
+  const { def, filePath } = definitionsByName.get(docName) || {}
 
   if (filePath && docName) {
-    codeBlock = getCodeFrameFromRelayError(
-      nameDefMap.get(docName),
-      message,
-      error
-    )
+    codeBlock = getCodeFrameFromRelayError(def, message, error)
     const formattedMessage = formatError(message, filePath, codeBlock)
     return { formattedMessage, docName, message, codeBlock }
   }
@@ -222,4 +216,83 @@ export function graphqlError(
   }
 
   return { formattedMessage: reportedMessage, docName, message, codeBlock }
+}
+
+export function unknownFragmentError({ fragmentNames, filePath, def, node }) {
+  const name = node.name.value
+  const closestFragment = fragmentNames
+    .map(f => {
+      return { fragment: f, score: levenshtein.get(name, f) }
+    })
+    .filter(f => f.score < 10)
+    .sort((a, b) => a.score > b.score)[0]?.fragment
+
+  return {
+    id: `85908`,
+    filePath,
+    context: {
+      fragmentName: name,
+      closestFragment,
+      codeFrame: codeFrameColumns(
+        def.text,
+        {
+          start: getLocation({ body: def.text }, node.loc.start),
+          end: getLocation({ body: def.text }, node.loc.end),
+        },
+        {
+          linesAbove: 10,
+          linesBelow: 10,
+        }
+      ),
+    },
+  }
+}
+
+export function duplicateFragmentError({ leftDefinition, rightDefinition }) {
+  return {
+    id: `85919`,
+    context: {
+      fragmentName: name,
+      leftFragment: {
+        filePath: leftDefinition.filePath,
+        codeFrame: codeFrameColumns(
+          leftDefinition.text,
+          {
+            start: getLocation(
+              { body: leftDefinition.text },
+              leftDefinition.def.name.loc.start
+            ),
+            end: getLocation(
+              { body: leftDefinition.text },
+              leftDefinition.def.name.loc.end
+            ),
+          },
+          {
+            linesAbove: 10,
+            linesBelow: 10,
+          }
+        ),
+      },
+      rightFragment: {
+        filepath: rightDefinition.filePath,
+        codeFrame: codeFrameColumns(
+          rightDefinition.text,
+          {
+            start: getLocation(
+              { body: rightDefinition.text },
+              rightDefinition.def.name.loc.start
+            ),
+            end: getLocation(
+              { body: rightDefinition.text },
+              rightDefinition.def.name.loc.end
+            ),
+          },
+          {
+            linesAbove: 10,
+            linesBelow: 10,
+          }
+        ),
+      },
+    },
+  }
 }

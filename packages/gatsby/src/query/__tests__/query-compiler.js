@@ -8,35 +8,28 @@ jest.mock(`glob`, () => {
 const { parse, buildSchema, Kind } = require(`graphql`)
 const path = require(`path`)
 const glob = require(`glob`)
-const { resolveThemes, Runner } = require(`../query-compiler`)
+const {
+  resolveThemes,
+  parseQueries,
+  processQueries,
+} = require(`../query-compiler`)
 
 const base = path.resolve(``)
 
 describe(`Runner`, () => {
-  const schema = buildSchema(`
-    type Query {
-      foo: String
-    }
-  `)
   beforeEach(() => {
     glob.sync.mockClear()
   })
 
-  it(`returns a file parser instance`, async () => {
-    const runner = new Runner(base, [], schema)
-
-    const parser = await runner.parseEverything()
-
-    expect(parser).toEqual(new Map())
-  })
-
   describe(`expected directories`, () => {
     it(`compiles src directory`, async () => {
-      const runner = new Runner(base, [], schema)
-
       const errors = []
-      await runner.compileAll(e => {
-        errors.push(e)
+      await parseQueries({
+        base,
+        additional: [],
+        addError: e => {
+          errors.push(e)
+        },
       })
 
       expect(errors).toEqual([])
@@ -48,11 +41,13 @@ describe(`Runner`, () => {
     })
 
     it(`compiles fragments directory`, async () => {
-      const runner = new Runner(base, [], schema)
-
       const errors = []
-      await runner.compileAll(e => {
-        errors.push(e)
+      await parseQueries({
+        base,
+        additional: [],
+        addError: e => {
+          errors.push(e)
+        },
       })
 
       expect(errors).toEqual([])
@@ -65,15 +60,13 @@ describe(`Runner`, () => {
 
     it(`compiles themes directory(s)`, async () => {
       const theme = `gatsby-theme-whatever`
-      const runner = new Runner(
-        base,
-        [path.join(base, `node_modules`, theme)],
-        schema
-      )
-
       const errors = []
-      await runner.compileAll(e => {
-        errors.push(e)
+      await parseQueries({
+        base,
+        additional: [path.join(base, `node_modules`, theme)],
+        addError: e => {
+          errors.push(e)
+        },
       })
 
       expect(errors).toEqual([])
@@ -617,7 +610,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`compiles a query`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -636,15 +628,18 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toEqual([])
     expect(result.get(`mockFile`)).toMatchSnapshot()
   })
 
   it(`compiles static query`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -666,8 +661,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toEqual([])
     expect(result.get(`mockFile`)).toMatchSnapshot({
@@ -676,7 +675,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`adds fragments from same documents`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -699,15 +697,18 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toEqual([])
     expect(result.get(`mockFile`)).toMatchSnapshot()
   })
 
   it(`adds fragments from different documents`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -734,15 +735,18 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toEqual([])
     expect(result.get(`mockFile`)).toMatchSnapshot()
   })
 
   it(`removes unused fragments from documents`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -769,15 +773,18 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toEqual([])
     expect(result.get(`mockFile`)).toMatchSnapshot()
   })
 
   it(`errors on unknown fragment`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -796,8 +803,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toMatchInlineSnapshot(`
       Array [
@@ -823,7 +834,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`advices on similarly named fragment`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -846,8 +856,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
 
     expect(errors).toMatchInlineSnapshot(
@@ -881,8 +895,141 @@ describe(`actual compiling`, () => {
     expect(result).toEqual(new Map())
   })
 
+  it(`accepts identical fragment definitions`, async () => {
+    const nodes = new Map()
+    ;[
+      [
+        `mockFile`,
+        createGatsbyDoc(
+          `query mockFileQuery {
+           allPostsJson {
+             nodes {
+               ...PostsJsonFragment
+             }
+          }
+        }
+
+        fragment PostsJsonFragment on PostsJson {
+          id
+        }`
+        ),
+      ],
+      [
+        `mockComponent`,
+        createGatsbyDoc(
+          `fragment PostsJsonFragment on PostsJson {
+            id
+          }`
+        ),
+      ],
+    ].forEach(([fileName, document]) => {
+      nodes.set(fileName, document)
+    })
+    const errors = []
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
+    })
+    expect(errors).toEqual([])
+    expect(result).toMatchSnapshot()
+  })
+
+  it(`errors on duplicate fragment names`, async () => {
+    const nodes = new Map()
+    ;[
+      [
+        `mockFile`,
+        createGatsbyDoc(
+          `query mockFileQuery {
+           allPostsJson {
+             nodes {
+               ...PostsJsonFragment
+             }
+          }
+        }
+
+        fragment PostsJsonFragment on PostsJson {
+          id
+          node
+        }`
+        ),
+      ],
+      [
+        `mockComponent`,
+        createGatsbyDoc(
+          `fragment PostsJsonFragment on PostsJson {
+            id
+          }`
+        ),
+      ],
+    ].forEach(([fileName, document]) => {
+      nodes.set(fileName, document)
+    })
+    const errors = []
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
+    })
+    expect(errors).toMatchInlineSnapshot(
+      `
+      Array [
+        Object {
+          "context": Object {
+            "fragmentName": "",
+            "leftFragment": Object {
+              "codeFrame": "> 1 | fragment PostsJsonFragment on PostsJson {
+          |          ^^^^^^^^^^^^^^^^^
+        2 |   id
+        3 | }",
+              "filePath": "mockComponent",
+            },
+            "rightFragment": Object {
+              "codeFrame": "  1 | fragment PostsJsonFragment on PostsJson {
+        2 |   id
+        3 |   node
+      > 4 | }
+          |  ^^^^^^^^^^^^^^^^^",
+              "filepath": "mockFile",
+            },
+          },
+          "id": "85919",
+        },
+        Object {
+          "context": Object {
+            "closestFragment": undefined,
+            "codeFrame": "   1 | query mockFileQuery {
+         2 |            allPostsJson {
+         3 |              nodes {
+      >  4 |                ...PostsJsonFragment
+           |                ^^^^^^^^^^^^^^^^^^^^
+         5 |              }
+         6 |           }
+         7 |         }
+         8 |` +
+        ` ` +
+        `
+         9 |         fragment PostsJsonFragment on PostsJson {
+        10 |           id
+        11 |           node
+        12 |         }",
+            "fragmentName": "PostsJsonFragment",
+          },
+          "filePath": "mockFile",
+          "id": "85908",
+        },
+      ]
+    `
+    )
+    expect(result).toEqual(new Map())
+  })
+
   it(`errors on wrong type of fragment`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -911,8 +1058,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toMatchInlineSnapshot(`
       Array [
@@ -939,7 +1090,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`errors on double root`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -966,8 +1116,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toMatchInlineSnapshot(
       `
@@ -1008,7 +1162,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`errors on invalid graphql`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -1035,8 +1188,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toMatchInlineSnapshot(`
       Array [
@@ -1059,7 +1216,6 @@ describe(`actual compiling`, () => {
   })
 
   it(`errors on schema-aware invalid graphql`, async () => {
-    const runner = new Runner(base, [], schema)
     const nodes = new Map()
     ;[
       [
@@ -1076,8 +1232,12 @@ describe(`actual compiling`, () => {
       nodes.set(fileName, document)
     })
     const errors = []
-    const result = await runner.write(nodes, e => {
-      errors.push(e)
+    const result = processQueries({
+      schema,
+      parsedQueries: nodes,
+      addError: e => {
+        errors.push(e)
+      },
     })
     expect(errors).toMatchInlineSnapshot(`
       Array [

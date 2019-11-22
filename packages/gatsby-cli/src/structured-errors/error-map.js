@@ -131,6 +131,21 @@ const errorMap = {
     type: `GRAPHQL`,
     level: `ERROR`,
   },
+  // Duplicate fragment
+  "85919": {
+    text: context =>
+      stripIndent(`
+      Found two different GraphQL fragments with identical name "${context.fragmentName}". Fragment names must be unique
+
+      File: ${context.leftFragment.filePath}
+      {context.leftFragment.codeFrame}
+
+      File: ${context.rightFragment.filePath}
+      {context.rightFragment.codeFrame}
+    `),
+    type: `GRAPHQL`,
+    level: `ERROR`,
+  },
   // Config errors
   "10123": {
     text: context =>

@@ -124,7 +124,7 @@ async function findGraphQLTags(
   return new Promise((resolve, reject) => {
     parseToAst(file, text, { parentSpan, addError })
       .then(ast => {
-        let queries = []
+        const queries = []
         if (!ast) {
           resolve(queries)
           return
@@ -373,7 +373,7 @@ export default class FileParser {
       .digest(`hex`)
 
     try {
-      let astDefinitions =
+      const astDefinitions =
         cache[hash] ||
         (cache[hash] = await findGraphQLTags(file, text, {
           parentSpan: this.parentSpan,
