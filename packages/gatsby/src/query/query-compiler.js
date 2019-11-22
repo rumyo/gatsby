@@ -76,7 +76,6 @@ class Runner {
     this.base = base
     this.additional = additional
     this.schema = schema
-    // this.relaySchema = Schema.create(new Source(printSchema(schema)))
     this.parentSpan = parentSpan
   }
 
